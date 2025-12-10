@@ -63,18 +63,9 @@ router.post("/", authenticateToken, async (req, res) => {
   }
 });
 
-// Get a random recommendation from the pool and consume it
-router.get("/random", authenticateToken, async (req, res) => {
-  try {
-    // First, check if there are any unconsumed recommendations from other users
-    const otherUserRecommendations = await Recommendation.countDocuments({
-      userId: { $ne: req.userId }, // Exclude current user's recommendations
-      consumed: false // Only get unconsumed recommendations
-    });
-
-    if (otherUserRecommendations === 0) {
-      // No recommendations from other users, provide a system recommendation
-      const systemRecommendations = [
+// Helper function to get a random system recommendation
+const getSystemRecommendation = () => {
+  const systemRecommendations = [
         {
           track: {
             id: "3AX2zMrXcR2up2rg4bpXSM",
@@ -201,38 +192,68 @@ router.get("/random", authenticateToken, async (req, res) => {
             }
           },
           isSystemRecommendation: true
-        }
-      ];
+      }
+    ];
+    
+    return systemRecommendations[Math.floor(Math.random() * systemRecommendations.length)];
+  };
 
-      // Select a random system recommendation
-      const randomSystemRec = systemRecommendations[Math.floor(Math.random() * systemRecommendations.length)];
-      
-      // Store the system recommendation in the database for tracking
-      const systemRecommendation = new Recommendation({
-        userId: "000000000000000000000000", // Use a special system user ID instead of null
-        track: randomSystemRec.track,
-        consumed: true, // Mark as immediately consumed
-        consumedBy: req.userId, // Mark as consumed by the current user
-        consumedAt: new Date(),
-        isSystemRecommendation: true // Flag to identify system recommendations
-      });
-      
-      console.log("Creating system recommendation for user:", req.userId);
-      console.log("System recommendation data:", {
-        track: randomSystemRec.track.name,
-        consumedBy: req.userId,
-        isSystemRecommendation: true
-      });
-      
-      await systemRecommendation.save();
-      console.log("System recommendation saved successfully");
-      
-      return res.json({
-        track: randomSystemRec.track,
-        isSystemRecommendation: true,
-        recommendedBy: "Ether",
-        recommenderCountry: null
-      });
+// Helper function to save and return a system recommendation
+const returnSystemRecommendation = async (req, res) => {
+  try {
+    const randomSystemRec = getSystemRecommendation();
+    
+    // Store the system recommendation in the database for tracking
+    const systemRecommendation = new Recommendation({
+      userId: "000000000000000000000000", // Use a special system user ID instead of null
+      track: randomSystemRec.track,
+      consumed: true, // Mark as immediately consumed
+      consumedBy: req.userId, // Mark as consumed by the current user
+      consumedAt: new Date(),
+      isSystemRecommendation: true // Flag to identify system recommendations
+    });
+    
+    console.log("Creating system recommendation for user:", req.userId);
+    console.log("System recommendation data:", {
+      track: randomSystemRec.track.name,
+      consumedBy: req.userId,
+      isSystemRecommendation: true
+    });
+    
+    await systemRecommendation.save();
+    console.log("System recommendation saved successfully");
+    
+    return res.json({
+      track: randomSystemRec.track,
+      isSystemRecommendation: true,
+      recommendedBy: "Ether",
+      recommenderCountry: null
+    });
+  } catch (error) {
+    console.error("Error creating system recommendation:", error);
+    // Even if saving fails, return the recommendation
+    const randomSystemRec = getSystemRecommendation();
+    return res.json({
+      track: randomSystemRec.track,
+      isSystemRecommendation: true,
+      recommendedBy: "Ether",
+      recommenderCountry: null
+    });
+  }
+};
+
+// Get a random recommendation from the pool and consume it
+router.get("/random", authenticateToken, async (req, res) => {
+  try {
+    // First, check if there are any unconsumed recommendations from other users
+    const otherUserRecommendations = await Recommendation.countDocuments({
+      userId: { $ne: req.userId }, // Exclude current user's recommendations
+      consumed: false // Only get unconsumed recommendations
+    });
+
+    if (otherUserRecommendations === 0) {
+      // No recommendations from other users, provide a system recommendation
+      return await returnSystemRecommendation(req, res);
     }
 
     // There are recommendations from other users, get a random one
@@ -252,42 +273,8 @@ router.get("/random", authenticateToken, async (req, res) => {
 
     if (!randomRecommendation || randomRecommendation.length === 0) {
       // Fallback to system recommendation if no valid recommendations found
-      const systemRecommendations = [
-        {
-          track: {
-            id: "3AX2zMrXcR2up2rg4bpXSM",
-            name: "HARDX",
-            artists: [{ name: "Yaego" }],
-            album: {
-              name: "HARDX — Single",
-              images: [{ url: "https://i.scdn.co/image/ab67616d0000b273c6dd25efb4ab10a9b52d1dbb" }]
-            },
-            external_urls: {
-              spotify: "https://open.spotify.com/track/3AX2zMrXcR2up2rg4bpXSM"
-            }
-          },
-          isSystemRecommendation: true
-        }
-      ];
-      const randomSystemRec = systemRecommendations[Math.floor(Math.random() * systemRecommendations.length)];
-      
-      const systemRecommendation = new Recommendation({
-        userId: "000000000000000000000000",
-        track: randomSystemRec.track,
-        consumed: true,
-        consumedBy: req.userId,
-        consumedAt: new Date(),
-        isSystemRecommendation: true
-      });
-      
-      await systemRecommendation.save();
-      
-      return res.json({
-        track: randomSystemRec.track,
-        isSystemRecommendation: true,
-        recommendedBy: "Ether",
-        recommenderCountry: null
-      });
+      console.log("No valid user recommendations found, falling back to system recommendation");
+      return await returnSystemRecommendation(req, res);
     }
 
     // Verify one more time that this recommendation doesn't belong to the current user
@@ -320,9 +307,9 @@ router.get("/random", authenticateToken, async (req, res) => {
           consumedAt: null
         }
       );
-      return res.status(500).json({ 
-        message: "Error: Cannot return your own recommendation. Please try again." 
-      });
+      // Fallback to system recommendation instead of error
+      console.log("Falling back to system recommendation due to safety check");
+      return await returnSystemRecommendation(req, res);
     }
 
     res.json({
@@ -333,7 +320,14 @@ router.get("/random", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching random recommendation:", error);
-    res.status(500).json({ message: "Failed to fetch recommendation" });
+    // Always fallback to system recommendation on any error
+    console.log("Error occurred, falling back to system recommendation");
+    try {
+      return await returnSystemRecommendation(req, res);
+    } catch (fallbackError) {
+      console.error("Even system recommendation failed:", fallbackError);
+      res.status(500).json({ message: "Failed to fetch recommendation" });
+    }
   }
 });
 
