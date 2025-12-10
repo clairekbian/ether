@@ -9,6 +9,14 @@ const REDIRECT_URI = process.env.REDIRECT_URI || "http://127.0.0.1:3000/callback
 
 // Generate Spotify authorization URL
 router.get("/auth", (req, res) => {
+  if (!SPOTIFY_CLIENT_ID || !REDIRECT_URI) {
+    console.error("Missing Spotify configuration:", { 
+      hasClientId: !!SPOTIFY_CLIENT_ID, 
+      hasRedirectUri: !!REDIRECT_URI 
+    });
+    return res.status(500).json({ message: "Spotify configuration missing" });
+  }
+  
   const scope = "user-top-read user-read-recently-played";
   const authUrl = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(scope)}`;
   
@@ -59,7 +67,16 @@ router.get("/callback", async (req, res) => {
 
   } catch (error) {
     console.error("Spotify callback error:", error.response?.data || error.message);
-    res.status(500).json({ message: "Failed to authenticate with Spotify" });
+    console.error("Error details:", {
+      hasClientId: !!SPOTIFY_CLIENT_ID,
+      hasClientSecret: !!SPOTIFY_CLIENT_SECRET,
+      redirectUri: REDIRECT_URI,
+      error: error.message
+    });
+    res.status(500).json({ 
+      message: "Failed to authenticate with Spotify",
+      error: error.response?.data?.error_description || error.message
+    });
   }
 });
 
