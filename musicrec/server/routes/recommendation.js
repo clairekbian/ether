@@ -236,17 +236,67 @@ router.get("/random", authenticateToken, async (req, res) => {
     }
 
     // There are recommendations from other users, get a random one
+    // Double-check: exclude current user's recommendations AND ensure it wasn't already consumed by them
     const randomRecommendation = await Recommendation.aggregate([
       {
         $match: {
           userId: { $ne: req.userId }, // Exclude current user's recommendations
-          consumed: false // Only get unconsumed recommendations
+          consumed: false, // Only get unconsumed recommendations
+          consumedBy: { $ne: req.userId } // Also exclude if somehow consumed by current user
         }
       },
       {
         $sample: { size: 1 } // Get one random recommendation
       }
     ]);
+
+    if (!randomRecommendation || randomRecommendation.length === 0) {
+      // Fallback to system recommendation if no valid recommendations found
+      const systemRecommendations = [
+        {
+          track: {
+            id: "3AX2zMrXcR2up2rg4bpXSM",
+            name: "HARDX",
+            artists: [{ name: "Yaego" }],
+            album: {
+              name: "HARDX — Single",
+              images: [{ url: "https://i.scdn.co/image/ab67616d0000b273c6dd25efb4ab10a9b52d1dbb" }]
+            },
+            external_urls: {
+              spotify: "https://open.spotify.com/track/3AX2zMrXcR2up2rg4bpXSM"
+            }
+          },
+          isSystemRecommendation: true
+        }
+      ];
+      const randomSystemRec = systemRecommendations[Math.floor(Math.random() * systemRecommendations.length)];
+      
+      const systemRecommendation = new Recommendation({
+        userId: "000000000000000000000000",
+        track: randomSystemRec.track,
+        consumed: true,
+        consumedBy: req.userId,
+        consumedAt: new Date(),
+        isSystemRecommendation: true
+      });
+      
+      await systemRecommendation.save();
+      
+      return res.json({
+        track: randomSystemRec.track,
+        isSystemRecommendation: true,
+        recommendedBy: "Ether",
+        recommenderCountry: null
+      });
+    }
+
+    // Verify one more time that this recommendation doesn't belong to the current user
+    if (randomRecommendation[0].userId && randomRecommendation[0].userId.toString() === req.userId.toString()) {
+      console.error("ERROR: Attempted to return user's own recommendation! User ID:", req.userId);
+      return res.status(500).json({ 
+        message: "Error: Cannot return your own recommendation. Please try again." 
+      });
+    }
 
     // Mark this recommendation as consumed by the current user
     const recommendation = await Recommendation.findByIdAndUpdate(
@@ -258,6 +308,22 @@ router.get("/random", authenticateToken, async (req, res) => {
       },
       { new: true }
     ).populate('userId', 'username name country');
+
+    // Final safety check before returning
+    if (recommendation.userId && recommendation.userId._id.toString() === req.userId.toString()) {
+      console.error("ERROR: Recommendation belongs to current user! Reverting consumption.");
+      await Recommendation.findByIdAndUpdate(
+        recommendation._id,
+        {
+          consumed: false,
+          consumedBy: null,
+          consumedAt: null
+        }
+      );
+      return res.status(500).json({ 
+        message: "Error: Cannot return your own recommendation. Please try again." 
+      });
+    }
 
     res.json({
       track: recommendation.track,
