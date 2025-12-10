@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// API Configuration - hardcoded for production
-const API_URL = 'https://museletter.onrender.com';
+// API Configuration - use environment variable or fallback
+const API_URL = process.env.REACT_APP_API_URL || 'https://museletter.onrender.com';
 
 console.log('API URL configured:', API_URL);
 
