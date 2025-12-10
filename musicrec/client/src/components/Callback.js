@@ -24,26 +24,47 @@ export default function Callback() {
         
         // Check if we have the required tokens
         if (response.data.access_token && response.data.refresh_token) {
-          // Store tokens
-          localStorage.setItem("spotify_token", response.data.access_token);
-          localStorage.setItem("spotify_refresh_token", response.data.refresh_token);
+          try {
+            // Store tokens - handle localStorage errors (e.g., private browsing on iOS)
+            localStorage.setItem("spotify_token", response.data.access_token);
+            localStorage.setItem("spotify_refresh_token", response.data.refresh_token);
+            localStorage.setItem("spotify_connect_success", "true");
+          } catch (storageError) {
+            console.error("localStorage error (might be private browsing):", storageError);
+            // On iOS Safari private browsing, localStorage might fail
+            // Store in sessionStorage as fallback
+            try {
+              sessionStorage.setItem("spotify_token", response.data.access_token);
+              sessionStorage.setItem("spotify_refresh_token", response.data.refresh_token);
+              sessionStorage.setItem("spotify_connect_success", "true");
+            } catch (sessionError) {
+              console.error("sessionStorage also failed:", sessionError);
+              setMessage("Storage error. Please disable private browsing and try again.");
+              setTimeout(() => navigate("/account"), 3000);
+              return;
+            }
+          }
           
-          // Set a flag to show success message on the account page
-          localStorage.setItem("spotify_connect_success", "true");
-          
-          setMessage("Successfully connected to Spotify! Redirecting to account page...");
-          // Redirect immediately on success
-          setTimeout(() => navigate("/account"), 500);
+          setMessage("Successfully connected to Spotify! Redirecting...");
+          // Use window.location for iOS Safari compatibility instead of navigate
+          setTimeout(() => {
+            window.location.href = "/account";
+          }, 500);
         } else {
           console.error("Missing tokens in response:", response.data);
           setMessage("Failed to connect to Spotify - missing tokens.");
-          setTimeout(() => navigate("/account"), 3000);
+          setTimeout(() => {
+            window.location.href = "/account";
+          }, 3000);
         }
       } catch (error) {
         console.error("Callback error:", error);
         console.error("Error response:", error.response?.data);
-        setMessage("Failed to connect to Spotify. Please try again.");
-        setTimeout(() => navigate("/account"), 3000);
+        const errorMsg = error.response?.data?.error || error.response?.data?.message || "Unknown error";
+        setMessage(`Failed to connect to Spotify: ${errorMsg}. Please try again.`);
+        setTimeout(() => {
+          window.location.href = "/account";
+        }, 3000);
       }
     };
 

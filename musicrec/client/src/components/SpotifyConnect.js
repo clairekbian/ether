@@ -10,7 +10,8 @@ export default function SpotifyConnect() {
 
   useEffect(() => {
     // Check if user has connected Spotify
-    const spotifyToken = localStorage.getItem("spotify_token");
+    // Try localStorage first, then sessionStorage (for iOS Safari private browsing)
+    const spotifyToken = localStorage.getItem("spotify_token") || sessionStorage.getItem("spotify_token");
     if (spotifyToken) {
       setIsConnected(true);
       fetchUserData(spotifyToken);
@@ -35,12 +36,13 @@ export default function SpotifyConnect() {
 
   // Helper to refresh token
   const refreshSpotifyToken = async () => {
-    const refresh_token = localStorage.getItem("spotify_refresh_token");
+    // Try localStorage first, then sessionStorage
+    const refresh_token = localStorage.getItem("spotify_refresh_token") || sessionStorage.getItem("spotify_refresh_token");
     console.log("Attempting to refresh token...");
     console.log("Refresh token exists:", !!refresh_token);
     
     if (!refresh_token) {
-      console.log("No refresh token found in localStorage");
+      console.log("No refresh token found");
       return null;
     }
     
@@ -50,8 +52,14 @@ export default function SpotifyConnect() {
       console.log("Refresh response:", response.data);
       
       if (response.data.access_token) {
-        localStorage.setItem("spotify_token", response.data.access_token);
-        console.log("New access token saved to localStorage");
+        // Try localStorage first, fallback to sessionStorage
+        try {
+          localStorage.setItem("spotify_token", response.data.access_token);
+          console.log("New access token saved to localStorage");
+        } catch (e) {
+          sessionStorage.setItem("spotify_token", response.data.access_token);
+          console.log("New access token saved to sessionStorage");
+        }
         return response.data.access_token;
       }
     } catch (err) {
@@ -83,8 +91,11 @@ export default function SpotifyConnect() {
   };
 
   const disconnectSpotify = () => {
+    // Clear from both localStorage and sessionStorage
     localStorage.removeItem("spotify_token");
     localStorage.removeItem("spotify_refresh_token");
+    sessionStorage.removeItem("spotify_token");
+    sessionStorage.removeItem("spotify_refresh_token");
     setIsConnected(false);
     setUserProfile(null);
     setTopTracks([]);
