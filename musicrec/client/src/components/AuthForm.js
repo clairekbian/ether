@@ -32,11 +32,28 @@ export default function AuthForm({ onSuccess }) {
       }
     } catch (err) {
       console.error("Auth error:", err);
-      const errorMessage = err.response?.data?.message || err.message || (isLogin ? "Login failed" : "Signup failed");
-      setError(errorMessage);
-      if (err.response?.status === 0 || err.code === "ERR_NETWORK") {
-        setError("Cannot connect to server. Please check your connection and try again.");
+      console.error("Error details:", {
+        message: err.message,
+        code: err.code,
+        response: err.response,
+        config: err.config
+      });
+      
+      let errorMessage = isLogin ? "Login failed" : "Signup failed";
+      
+      if (err.response) {
+        // Server responded with error
+        errorMessage = err.response.data?.message || `Server error: ${err.response.status}`;
+      } else if (err.request) {
+        // Request made but no response
+        errorMessage = "Cannot connect to server. Please check if the backend is running.";
+      } else if (err.code === "ERR_NETWORK" || err.message?.includes("Network Error")) {
+        errorMessage = "Network error. Cannot reach the server.";
+      } else {
+        errorMessage = err.message || errorMessage;
       }
+      
+      setError(errorMessage);
     }
   };
 
