@@ -280,33 +280,49 @@ router.get("/random", authenticateToken, async (req, res) => {
     // Verify one more time that this recommendation doesn't belong to the current user
     if (randomRecommendation[0].userId && randomRecommendation[0].userId.toString() === req.userId.toString()) {
       console.error("ERROR: Attempted to return user's own recommendation! User ID:", req.userId);
-      return res.status(500).json({ 
-        message: "Error: Cannot return your own recommendation. Please try again." 
-      });
+      // Fallback to system recommendation instead of error
+      console.log("Falling back to system recommendation due to user check");
+      return await returnSystemRecommendation(req, res);
     }
 
     // Mark this recommendation as consumed by the current user
-    const recommendation = await Recommendation.findByIdAndUpdate(
-      randomRecommendation[0]._id,
-      {
-        consumed: true,
-        consumedBy: req.userId,
-        consumedAt: new Date()
-      },
-      { new: true }
-    ).populate('userId', 'username name country');
+    let recommendation;
+    try {
+      recommendation = await Recommendation.findByIdAndUpdate(
+        randomRecommendation[0]._id,
+        {
+          consumed: true,
+          consumedBy: req.userId,
+          consumedAt: new Date()
+        },
+        { new: true }
+      ).populate('userId', 'username name country');
+      
+      // Check if populate failed or userId is null
+      if (!recommendation || !recommendation.userId) {
+        console.error("ERROR: Recommendation or userId is null after populate");
+        return await returnSystemRecommendation(req, res);
+      }
+    } catch (populateError) {
+      console.error("Error populating recommendation:", populateError);
+      return await returnSystemRecommendation(req, res);
+    }
 
     // Final safety check before returning
-    if (recommendation.userId && recommendation.userId._id.toString() === req.userId.toString()) {
+    if (recommendation.userId && recommendation.userId._id && recommendation.userId._id.toString() === req.userId.toString()) {
       console.error("ERROR: Recommendation belongs to current user! Reverting consumption.");
-      await Recommendation.findByIdAndUpdate(
-        recommendation._id,
-        {
-          consumed: false,
-          consumedBy: null,
-          consumedAt: null
-        }
-      );
+      try {
+        await Recommendation.findByIdAndUpdate(
+          recommendation._id,
+          {
+            consumed: false,
+            consumedBy: null,
+            consumedAt: null
+          }
+        );
+      } catch (revertError) {
+        console.error("Error reverting consumption:", revertError);
+      }
       // Fallback to system recommendation instead of error
       console.log("Falling back to system recommendation due to safety check");
       return await returnSystemRecommendation(req, res);
@@ -315,8 +331,8 @@ router.get("/random", authenticateToken, async (req, res) => {
     res.json({
       track: recommendation.track,
       isSystemRecommendation: false,
-      recommendedBy: recommendation.userId.username || recommendation.userId.name || "Anonymous",
-      recommenderCountry: recommendation.userId.country || "Unknown"
+      recommendedBy: recommendation.userId?.username || recommendation.userId?.name || "Anonymous",
+      recommenderCountry: recommendation.userId?.country || "Unknown"
     });
   } catch (error) {
     console.error("Error fetching random recommendation:", error);
