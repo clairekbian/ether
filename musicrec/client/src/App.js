@@ -157,8 +157,8 @@ function App() {
             height: "80vh",
             textAlign: "center"
           }}>
-            <h1>~Welcome 2 MuseLetter ♫⋆｡♪ ₊˚♬ ﾟ.｡~</h1>
-            <p>share your favorite tracks with friends and discover your next music muse ଘ(੭* ⌒.–)੭* ̀ˋ</p>
+            <h1>~welcome 2 ether ♫⋆｡♪ ₊˚♬ ﾟ.｡~</h1>
+            <p>share your favorite tracks with friends and get lost in the ether ଘ(੭* ⌒.–)੭* ̀ˋ</p>
           </div>
         } />
         <Route path="/recommend" element={<RecommendationPage />} />
