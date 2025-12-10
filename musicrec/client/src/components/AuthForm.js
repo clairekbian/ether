@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
+import api from "../api";
 
 export default function AuthForm({ onSuccess }) {
   const [isLogin, setIsLogin] = useState(true);
@@ -17,7 +18,7 @@ export default function AuthForm({ onSuccess }) {
     try {
       if (isLogin) {
         // Login
-        const res = await axios.post("/auth/login", { username, password });
+        const res = await api.post("/auth/login", { username, password });
         localStorage.setItem("token", res.data.token);
         setMessage("Login successful!");
         if (onSuccess) {
@@ -27,11 +28,16 @@ export default function AuthForm({ onSuccess }) {
         }
       } else {
         // Signup
-        await axios.post("/auth/signup", { username, email, password });
+        await api.post("/auth/signup", { username, email, password });
         setMessage("Signup successful! You can now log in.");
       }
     } catch (err) {
-      setError(err.response?.data?.message || (isLogin ? "Login failed" : "Signup failed"));
+      console.error("Auth error:", err);
+      const errorMessage = err.response?.data?.message || err.message || (isLogin ? "Login failed" : "Signup failed");
+      setError(errorMessage);
+      if (err.response?.status === 0 || err.code === "ERR_NETWORK") {
+        setError("Cannot connect to server. Please check your connection and try again.");
+      }
     }
   };
 
