@@ -60,7 +60,17 @@ export default function Callback() {
       } catch (error) {
         console.error("Callback error:", error);
         console.error("Error response:", error.response?.data);
-        const errorMsg = error.response?.data?.error || error.response?.data?.message || "Unknown error";
+        console.error("Error status:", error.response?.status);
+        console.error("Full error:", error);
+        
+        // Get more detailed error message
+        let errorMsg = "Unknown error";
+        if (error.response?.data) {
+          errorMsg = error.response.data.message || error.response.data.error || error.message;
+        } else if (error.message) {
+          errorMsg = error.message;
+        }
+        
         setMessage(`Failed to connect to Spotify: ${errorMsg}. Please try again.`);
         setTimeout(() => {
           window.location.href = "/account";

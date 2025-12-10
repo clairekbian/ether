@@ -25,13 +25,26 @@ router.get("/auth", (req, res) => {
 
 // Handle the callback from Spotify
 router.get("/callback", async (req, res) => {
-  const { code } = req.query;
+  const { code, error: spotifyError } = req.query;
+  
+  // Check if Spotify returned an error
+  if (spotifyError) {
+    console.error("Spotify authorization error:", spotifyError);
+    return res.status(400).json({ 
+      message: "Spotify authorization failed",
+      error: spotifyError 
+    });
+  }
   
   if (!code) {
+    console.error("No authorization code received");
     return res.status(400).json({ message: "Authorization code not found" });
   }
 
   try {
+    console.log("Exchanging code for token...");
+    console.log("Redirect URI being used:", REDIRECT_URI);
+    
     // Exchange code for access token
     const tokenResponse = await axios.post("https://accounts.spotify.com/api/token", 
       new URLSearchParams({
@@ -48,6 +61,14 @@ router.get("/callback", async (req, res) => {
     );
 
     const { access_token, refresh_token } = tokenResponse.data;
+    
+    if (!access_token || !refresh_token) {
+      console.error("Missing tokens in Spotify response");
+      return res.status(500).json({ 
+        message: "Failed to get tokens from Spotify",
+        error: "Invalid token response"
+      });
+    }
     
     // Get user profile
     const userResponse = await axios.get("https://api.spotify.com/v1/me", {
@@ -67,15 +88,33 @@ router.get("/callback", async (req, res) => {
 
   } catch (error) {
     console.error("Spotify callback error:", error.response?.data || error.message);
+    console.error("Full error:", error);
     console.error("Error details:", {
       hasClientId: !!SPOTIFY_CLIENT_ID,
       hasClientSecret: !!SPOTIFY_CLIENT_SECRET,
       redirectUri: REDIRECT_URI,
-      error: error.message
+      codeReceived: !!code,
+      spotifyError: error.response?.data
     });
+    
+    // Provide more specific error messages
+    let errorMessage = "Failed to authenticate with Spotify";
+    let errorDetails = error.message;
+    
+    if (error.response?.data) {
+      const spotifyError = error.response.data;
+      errorDetails = spotifyError.error_description || spotifyError.error || error.message;
+      
+      if (spotifyError.error === "invalid_grant") {
+        errorMessage = "Authorization code expired or invalid. Please try connecting again.";
+      } else if (spotifyError.error === "invalid_client") {
+        errorMessage = "Spotify app configuration error. Please check server settings.";
+      }
+    }
+    
     res.status(500).json({ 
-      message: "Failed to authenticate with Spotify",
-      error: error.response?.data?.error_description || error.message
+      message: errorMessage,
+      error: errorDetails
     });
   }
 });
