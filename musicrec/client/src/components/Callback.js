@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api";
 
 export default function Callback() {
   const [message, setMessage] = useState("Connecting to Spotify...");
@@ -19,7 +19,7 @@ export default function Callback() {
 
       try {
         console.log("Making callback request with code:", code);
-        const response = await axios.get(`/spotify/callback?code=${code}`);
+        const response = await api.get(`/spotify/callback?code=${code}`);
         console.log("Callback response:", response.data);
         
         // Check if we have the required tokens

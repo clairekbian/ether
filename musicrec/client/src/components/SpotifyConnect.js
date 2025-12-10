@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../api";
 
 export default function SpotifyConnect() {
   const [isConnected, setIsConnected] = useState(false);
@@ -22,11 +22,12 @@ export default function SpotifyConnect() {
     setError("");
     
     try {
-      const response = await axios.get("/spotify/auth");
+      const response = await api.get("/spotify/auth");
       window.location.href = response.data.authUrl;
     } catch (err) {
       setError("Failed to connect to Spotify");
       console.error("Spotify auth error:", err);
+      console.error("Error details:", err.response?.data || err.message);
     } finally {
       setLoading(false);
     }
@@ -45,7 +46,7 @@ export default function SpotifyConnect() {
     
     try {
       console.log("Calling /spotify/refresh endpoint...");
-      const response = await axios.post("/spotify/refresh", { refresh_token });
+      const response = await api.post("/spotify/refresh", { refresh_token });
       console.log("Refresh response:", response.data);
       
       if (response.data.access_token) {
@@ -63,7 +64,7 @@ export default function SpotifyConnect() {
   // Fetch user data with token refresh logic
   const fetchUserData = async (token, triedRefresh = false) => {
     try {
-      const response = await axios.get("/spotify/top-tracks", {
+      const response = await api.get("/spotify/top-tracks", {
         headers: { access_token: token }
       });
       setTopTracks(response.data.items);
