@@ -71,10 +71,16 @@ export default function Callback() {
           errorMsg = error.message;
         }
         
-        setMessage(`Failed to connect to Spotify: ${errorMsg}. Please try again.`);
+        // Check if this is an access approval required error
+        if (error.response?.status === 403 && error.response?.data?.requiresApproval) {
+          setMessage("Your Spotify account needs to be added to the app. Your request has been recorded and will be reviewed. Please try again later or contact support.");
+        } else {
+          setMessage(`Failed to connect to Spotify: ${errorMsg}. Please try again.`);
+        }
+        
         setTimeout(() => {
           window.location.href = "/account";
-        }, 3000);
+        }, 5000);
       }
     };
 

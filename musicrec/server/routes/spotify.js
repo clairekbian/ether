@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
+const SpotifyAccessRequest = require("../models/SpotifyAccessRequest");
 
 // Spotify OAuth configuration
 const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
@@ -100,20 +101,74 @@ router.get("/callback", async (req, res) => {
     }
     
     // Get user profile
-    const userResponse = await axios.get("https://api.spotify.com/v1/me", {
-      headers: { Authorization: `Bearer ${access_token}` }
-    });
+    try {
+      const userResponse = await axios.get("https://api.spotify.com/v1/me", {
+        headers: { Authorization: `Bearer ${access_token}` }
+      });
 
-    const userProfile = userResponse.data;
-    
-    // Store tokens (in a real app, you'd save these to a database)
-    // For now, we'll return them to the client
-    res.json({
-      success: true,
-      access_token,
-      refresh_token,
-      user: userProfile
-    });
+      const userProfile = userResponse.data;
+      
+      // Store tokens (in a real app, you'd save these to a database)
+      // For now, we'll return them to the client
+      res.json({
+        success: true,
+        access_token,
+        refresh_token,
+        user: userProfile
+      });
+    } catch (profileError) {
+      // Check if user is not registered in Spotify app
+      const errorData = profileError.response?.data;
+      const errorMessage = errorData?.data || errorData?.error?.message || profileError.message;
+      
+      if (profileError.response?.status === 403 && 
+          (errorMessage.includes("not be registered") || errorMessage.includes("Check settings"))) {
+        
+        // Try to decode token to get user info (JWT)
+        let userEmail = null;
+        let spotifyId = null;
+        let displayName = null;
+        
+        try {
+          // Spotify tokens are JWTs, we can decode them (without verification)
+          const tokenParts = access_token.split('.');
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+            spotifyId = payload.sub;
+            // Note: Email might not be in the token
+          }
+        } catch (e) {
+          console.log("Could not decode token");
+        }
+        
+        // Store access request
+        try {
+          await SpotifyAccessRequest.findOneAndUpdate(
+            { email: userEmail || spotifyId || 'unknown' },
+            {
+              email: userEmail || spotifyId || 'unknown',
+              spotifyId: spotifyId,
+              displayName: displayName,
+              requestedAt: new Date(),
+              added: false
+            },
+            { upsert: true, new: true }
+          );
+          console.log("Stored Spotify access request");
+        } catch (dbError) {
+          console.error("Error storing access request:", dbError);
+        }
+        
+        return res.status(403).json({
+          message: "Spotify access required",
+          error: "Your Spotify account needs to be added to the app. Your request has been recorded. Please contact the app administrator or wait for approval.",
+          requiresApproval: true
+        });
+      }
+      
+      // Re-throw if it's a different error
+      throw profileError;
+    }
 
   } catch (error) {
     console.error("Spotify callback error:", error.response?.data || error.message);
@@ -233,6 +288,74 @@ router.get("/recent-tracks", async (req, res) => {
   } catch (error) {
     console.error("Error fetching recent tracks:", error.response?.data || error.message);
     res.status(500).json({ message: "Failed to fetch recent tracks" });
+  }
+});
+
+// Admin endpoint to get pending Spotify access requests
+router.get("/admin/pending-requests", async (req, res) => {
+  try {
+    const pendingRequests = await SpotifyAccessRequest.find({ added: false })
+      .sort({ requestedAt: -1 });
+    
+    res.json({
+      success: true,
+      count: pendingRequests.length,
+      requests: pendingRequests
+    });
+  } catch (error) {
+    console.error("Error fetching pending requests:", error);
+    res.status(500).json({ message: "Error fetching requests" });
+  }
+});
+
+// Admin endpoint to mark a request as added
+router.post("/admin/mark-added", async (req, res) => {
+  try {
+    const { email, spotifyId } = req.body;
+    
+    if (!email && !spotifyId) {
+      return res.status(400).json({ message: "Email or Spotify ID required" });
+    }
+    
+    const query = email ? { email } : { spotifyId };
+    const updated = await SpotifyAccessRequest.findOneAndUpdate(
+      query,
+      { 
+        added: true,
+        addedAt: new Date()
+      },
+      { new: true }
+    );
+    
+    if (!updated) {
+      return res.status(404).json({ message: "Request not found" });
+    }
+    
+    res.json({
+      success: true,
+      message: "Request marked as added",
+      request: updated
+    });
+  } catch (error) {
+    console.error("Error marking request as added:", error);
+    res.status(500).json({ message: "Error updating request" });
+  }
+});
+
+// Admin endpoint to get all requests (including added ones)
+router.get("/admin/all-requests", async (req, res) => {
+  try {
+    const allRequests = await SpotifyAccessRequest.find()
+      .sort({ requestedAt: -1 });
+    
+    res.json({
+      success: true,
+      count: allRequests.length,
+      requests: allRequests
+    });
+  } catch (error) {
+    console.error("Error fetching all requests:", error);
+    res.status(500).json({ message: "Error fetching requests" });
   }
 });
 
