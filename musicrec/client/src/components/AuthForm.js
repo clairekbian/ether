@@ -43,11 +43,6 @@ export default function AuthForm({ onSuccess }) {
     setError("");
   };
 
-  const switchMode = () => {
-    setIsLogin(!isLogin);
-    resetForm();
-  };
-
   return (
     <div style={{ maxWidth: "400px", margin: "0 auto", padding: "20px" }}>
       <div style={{ display: "flex", marginBottom: "20px" }}>
