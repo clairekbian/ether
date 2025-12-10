@@ -44,6 +44,18 @@ router.get("/callback", async (req, res) => {
   try {
     console.log("Exchanging code for token...");
     console.log("Redirect URI being used:", REDIRECT_URI);
+    console.log("Code received:", code ? "Yes" : "No");
+    console.log("Has client ID:", !!SPOTIFY_CLIENT_ID);
+    console.log("Has client secret:", !!SPOTIFY_CLIENT_SECRET);
+    
+    // Validate required configuration
+    if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
+      console.error("Missing Spotify credentials");
+      return res.status(500).json({ 
+        message: "Server configuration error",
+        error: "Missing Spotify credentials"
+      });
+    }
     
     // Exchange code for access token
     const tokenResponse = await axios.post("https://accounts.spotify.com/api/token", 
@@ -55,7 +67,8 @@ router.get("/callback", async (req, res) => {
         client_secret: SPOTIFY_CLIENT_SECRET
       }), {
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded"
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Accept": "application/json"
         }
       }
     );
@@ -89,6 +102,7 @@ router.get("/callback", async (req, res) => {
   } catch (error) {
     console.error("Spotify callback error:", error.response?.data || error.message);
     console.error("Full error:", error);
+    console.error("Error status:", error.response?.status);
     console.error("Error details:", {
       hasClientId: !!SPOTIFY_CLIENT_ID,
       hasClientSecret: !!SPOTIFY_CLIENT_SECRET,
@@ -100,19 +114,27 @@ router.get("/callback", async (req, res) => {
     // Provide more specific error messages
     let errorMessage = "Failed to authenticate with Spotify";
     let errorDetails = error.message;
+    let statusCode = 500;
     
-    if (error.response?.data) {
+    if (error.response) {
+      statusCode = error.response.status;
       const spotifyError = error.response.data;
-      errorDetails = spotifyError.error_description || spotifyError.error || error.message;
       
-      if (spotifyError.error === "invalid_grant") {
-        errorMessage = "Authorization code expired or invalid. Please try connecting again.";
-      } else if (spotifyError.error === "invalid_client") {
-        errorMessage = "Spotify app configuration error. Please check server settings.";
+      if (spotifyError) {
+        errorDetails = spotifyError.error_description || spotifyError.error || error.message;
+        
+        if (spotifyError.error === "invalid_grant") {
+          errorMessage = "Authorization code expired or invalid. Please try connecting again.";
+        } else if (spotifyError.error === "invalid_client") {
+          errorMessage = "Spotify app configuration error. Please check server settings.";
+        } else if (statusCode === 403) {
+          errorMessage = "Access forbidden. Please check Spotify app settings and redirect URI.";
+          errorDetails = spotifyError.error_description || "Redirect URI mismatch or invalid client credentials";
+        }
       }
     }
     
-    res.status(500).json({ 
+    res.status(statusCode).json({ 
       message: errorMessage,
       error: errorDetails
     });
