@@ -388,7 +388,7 @@ export default function RecommendationPage() {
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
                   <p style={{ margin: "0 0 4px 0", fontWeight: "bold" }}>
-                    {receivedRecommendation.isSystemRecommendation ? "🎵 MuseLetter" : receivedRecommendation.recommendedBy}
+                    {receivedRecommendation.isSystemRecommendation ? "🎵 Ether" : receivedRecommendation.recommendedBy}
                   </p>
                   {!receivedRecommendation.isSystemRecommendation && (
                     <p style={{ margin: 0, color: "#666", fontSize: "14px" }}>

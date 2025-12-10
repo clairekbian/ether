@@ -812,7 +812,7 @@ export default function AccountPage() {
                         <div style={{ fontSize: "12px", color: "#888" }}>
                           Received: {formatDate(rec.consumedAt)}
                           <br />
-                          From: {rec.isSystemRecommendation ? "🎵 MuseLetter" : (rec.userId?.username || rec.userId?.name || "Anonymous")}
+                          From: {rec.isSystemRecommendation ? "🎵 Ether" : (rec.userId?.username || rec.userId?.name || "Anonymous")}
                           {!rec.isSystemRecommendation && rec.userId?.country && (
                             <span style={{ color: "#666" }}> • {rec.userId.country}</span>
                           )}

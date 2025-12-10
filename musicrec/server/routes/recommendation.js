@@ -230,7 +230,7 @@ router.get("/random", authenticateToken, async (req, res) => {
       return res.json({
         track: randomSystemRec.track,
         isSystemRecommendation: true,
-        recommendedBy: "MuseLetter",
+        recommendedBy: "Ether",
         recommenderCountry: null
       });
     }

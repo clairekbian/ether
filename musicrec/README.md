@@ -1,4 +1,4 @@
-# MuseLetter ♫⋆｡♪ ₊˚♬ ﾟ.｡
+# Ether ♫⋆｡♪ ₊˚♬ ﾟ.｡
 
 Share your favorite tracks with friends and discover your next music muse!
 

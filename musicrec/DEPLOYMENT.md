@@ -1,4 +1,4 @@
-# Deployment Guide
+# Deployment Guide for Ether
 
 ## Prerequisites
 - GitHub account
@@ -9,13 +9,13 @@
 ## Step 1: Create GitHub Repository
 
 1. Go to [GitHub](https://github.com) and create a new repository
-2. Name it `museletter` (or your preferred name)
+2. Name it `ether` (or your preferred name)
 3. **Don't** initialize with README, .gitignore, or license
 4. Copy the repository URL
 
 Then update your remote:
 ```bash
-git remote set-url origin https://github.com/YOUR_USERNAME/museletter.git
+git remote set-url origin https://github.com/YOUR_USERNAME/ether.git
 git push -u origin main
 ```
 
@@ -25,7 +25,7 @@ git push -u origin main
 2. Click "New +" → "Web Service"
 3. Connect your GitHub repository
 4. Configure:
-   - **Name**: `museletter-backend`
+   - **Name**: `ether-backend`
    - **Root Directory**: `server`
    - **Environment**: `Node`
    - **Build Command**: `npm install`
@@ -38,7 +38,7 @@ git push -u origin main
    - `REDIRECT_URI` - `https://YOUR_NETLIFY_URL.netlify.app/callback`
    - `PORT` - Leave as default (Render sets this automatically)
 6. Click "Create Web Service"
-7. Wait for deployment and copy your backend URL (e.g., `https://museletter.onrender.com`)
+7. Wait for deployment and copy your backend URL (e.g., `https://ether-backend.onrender.com`)
 
 ## Step 3: Deploy Frontend to Netlify
 
@@ -50,7 +50,7 @@ git push -u origin main
    - **Build command**: `npm run build`
    - **Publish directory**: `client/build`
 5. Add Environment Variables:
-   - `REACT_APP_API_URL` - Your Render backend URL (e.g., `https://museletter.onrender.com`)
+   - `REACT_APP_API_URL` - Your Render backend URL (e.g., `https://ether-backend.onrender.com`)
 6. Click "Deploy site"
 7. Wait for deployment and copy your frontend URL
 
@@ -71,5 +71,5 @@ git push -u origin main
 ## Your app is now live! 🎉
 
 - Frontend: `https://YOUR_SITE.netlify.app`
-- Backend: `https://museletter.onrender.com` (or your Render URL)
+- Backend: `https://ether-backend.onrender.com` (or your Render URL)
 
