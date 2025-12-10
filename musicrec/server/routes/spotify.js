@@ -17,8 +17,13 @@ router.get("/auth", (req, res) => {
     return res.status(500).json({ message: "Spotify configuration missing" });
   }
   
+  console.log("Generating auth URL with redirect URI:", REDIRECT_URI);
+  console.log("Client ID:", SPOTIFY_CLIENT_ID ? "Present" : "Missing");
+  
   const scope = "user-top-read user-read-recently-played";
   const authUrl = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(scope)}`;
+  
+  console.log("Generated auth URL (first 100 chars):", authUrl.substring(0, 100));
   
   res.json({ authUrl });
 });
@@ -42,11 +47,11 @@ router.get("/callback", async (req, res) => {
   }
 
   try {
-    console.log("Exchanging code for token...");
-    console.log("Redirect URI being used:", REDIRECT_URI);
-    console.log("Code received:", code ? "Yes" : "No");
-    console.log("Has client ID:", !!SPOTIFY_CLIENT_ID);
-    console.log("Has client secret:", !!SPOTIFY_CLIENT_SECRET);
+    console.log("=== Spotify Callback Debug ===");
+    console.log("Code received:", code ? `Yes (${code.substring(0, 20)}...)` : "No");
+    console.log("Redirect URI from env:", REDIRECT_URI);
+    console.log("Client ID exists:", !!SPOTIFY_CLIENT_ID);
+    console.log("Client Secret exists:", !!SPOTIFY_CLIENT_SECRET);
     
     // Validate required configuration
     if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
@@ -57,15 +62,26 @@ router.get("/callback", async (req, res) => {
       });
     }
     
+    // Build the request body
+    const requestBody = new URLSearchParams({
+      grant_type: "authorization_code",
+      code: code,
+      redirect_uri: REDIRECT_URI,
+      client_id: SPOTIFY_CLIENT_ID,
+      client_secret: SPOTIFY_CLIENT_SECRET
+    });
+    
+    console.log("Request redirect_uri:", REDIRECT_URI);
+    console.log("Request body (without secrets):", {
+      grant_type: "authorization_code",
+      code: code ? "present" : "missing",
+      redirect_uri: REDIRECT_URI,
+      client_id: SPOTIFY_CLIENT_ID ? "present" : "missing"
+    });
+    
     // Exchange code for access token
     const tokenResponse = await axios.post("https://accounts.spotify.com/api/token", 
-      new URLSearchParams({
-        grant_type: "authorization_code",
-        code: code,
-        redirect_uri: REDIRECT_URI,
-        client_id: SPOTIFY_CLIENT_ID,
-        client_secret: SPOTIFY_CLIENT_SECRET
-      }), {
+      requestBody, {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           "Accept": "application/json"
